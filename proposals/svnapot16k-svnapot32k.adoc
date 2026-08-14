@@ -1,0 +1,161 @@
+= Fast-Track Proposal: Svnapot16k and Svnapot32k
+
+This document requests approval to pursue the proposed `Svnapot16k` and
+`Svnapot32k` extensions through the Fast Track Architecture Extension
+process.
+
+== Fast-Track Proposer
+
+Proposer/Owner:: Yunhui Cui, ByteDance, cuiyunhui@bytedance.com
+Governing Committee:: Privileged ISA Committee
+
+== Introduction
+
+The ratified `Svnapot` extension defines NAPOT translation contiguity for
+Sv39, Sv48, and Sv57. It currently standardizes one level-0 NAPOT
+translation size: a 64 KiB contiguous region formed from sixteen 4 KiB
+translations.
+
+This proposal standardizes two additional level-0 NAPOT translation sizes:
+
+* `Svnapot16k`: a 16 KiB contiguous region formed from four 4 KiB
+  translations; and
+* `Svnapot32k`: a 32 KiB contiguous region formed from eight 4 KiB
+  translations.
+
+The extension names provide architectural discovery of the corresponding
+PTE encodings. No separate discovery CSR is introduced.
+
+The proposed names are provisional and subject to Architecture Review
+Committee confirmation.
+
+== Why Existing Extensions Are Insufficient
+
+The current `Svnapot` specification standardizes only the 64 KiB level-0
+NAPOT encoding. The encodings corresponding to `pte.napot_bits=2` and
+`pte.napot_bits=3` remain reserved, so software cannot use them for 16 KiB
+or 32 KiB NAPOT mappings.
+
+Operating systems increasingly use multi-size transparent huge pages and
+other power-of-two large folios below the PMD size. With a 4 KiB base page,
+Linux anonymous mTHP can use 16 KiB, 32 KiB, and 64 KiB folios. The existing
+`Svnapot` encoding covers only the 64 KiB case. Smaller NAPOT PTEs are useful
+when a 64 KiB allocation or alignment is unavailable.
+
+The proposal concerns architecturally visible PTE encodings. It does not
+expose or constrain how an implementation internally caches a 64 KiB
+Svnapot mapping.
+
+== Objectives
+
+The objectives are to standardize the 16 KiB and 32 KiB level-0 NAPOT PTE
+encodings, provide discovery through ISA extension names, and reuse the
+existing `Svnapot` semantics.
+
+== Proposed Extensions
+
+=== Names and dependencies
+
+`Svnapot16k` and `Svnapot32k` are independently discoverable extensions.
+Each depends on `Svnapot`.
+
+Consequently, a hart implementing either new extension also implements and
+advertises `Svnapot`. Existing software that recognizes only `Svnapot`
+continues to use the existing 64 KiB encoding.
+
+Neither new extension depends on the other.
+
+=== PTE encodings
+
+The extensions define the following encodings for a leaf PTE found at
+page-table level `i=0` with `pte.N=1`:
+
+[cols="2,1,2,2,2",options="header"]
+|===
+|Low bits of `pte.ppn[0]`
+|`pte.napot_bits`
+|Contiguous region
+|Number of 4 KiB translations
+|Required extension
+
+|`x xxxx xx10`
+|2
+|16 KiB
+|4
+|`Svnapot16k`
+
+|`x xxxx x100`
+|3
+|32 KiB
+|8
+|`Svnapot32k`
+
+|`x xxxx 1000`
+|4
+|64 KiB
+|16
+|`Svnapot`
+|===
+
+The 64 KiB encoding is unchanged.
+
+When `Svnapot16k` is not implemented, the `pte.napot_bits=2` encoding
+remains reserved. When `Svnapot32k` is not implemented, the
+`pte.napot_bits=3` encoding remains reserved. The existing `Svnapot` rule
+that a reserved encoding raises a page-fault exception continues to apply.
+
+All other level-0 NAPOT encodings and all NAPOT encodings at higher
+page-table levels remain reserved.
+
+=== Semantics and discovery
+
+For a valid encoding with `pte.napot_bits=n`, implicit reads of the NAPOT
+PTE replace `pte.ppn[0][n-1:0]` with `vpn[0][n-1:0]`, as already specified
+by `Svnapot`.
+
+All other `Svnapot` translation, permission, A/D-bit, consistency, and
+invalidation rules apply without modification.
+
+As with `Svnapot`, when the H extension is implemented, `Svnapot16k` and
+`Svnapot32k` also apply to G-stage translation.
+
+The ISA extension names directly indicate whether a hart supports the
+corresponding PTE encoding:
+
+* `svnapot16k` indicates support for the 16 KiB encoding; and
+* `svnapot32k` indicates support for the 32 KiB encoding.
+
+No new CSR or probing mechanism is defined.
+
+The extensions follow the existing `Svnapot` virtualization behavior and
+introduce no new per-guest controls.
+
+== Exclusions
+
+This proposal does not:
+
+* standardize the 8 KiB NAPOT encoding;
+* standardize 128 KiB or larger NAPOT encodings;
+* define NAPOT encodings at page-table levels greater than zero;
+* rename or change the existing `Svnapot` extension or its 64 KiB encoding;
+* constrain the size or organization of implementation TLB entries;
+* define operating-system allocation or PTE-folding policy.
+
+== Collaborations
+
+The initial proposal was discussed on the Privileged ISA Committee mailing
+list:
+
+https://lists.riscv.org/g/tech-privileged/topic/120733591
+
+== Request
+
+The proposer requests Architecture Review Committee approval to pursue
+`Svnapot16k` and `Svnapot32k` as a single Fast Track proposal.
+
+== References
+
+* RISC-V `Svnapot` specification:
+  https://github.com/riscv/riscv-isa-manual/blob/main/src/priv/svnapot.adoc
+* Linux multi-size THP (mTHP) documentation:
+  https://docs.kernel.org/admin-guide/mm/transhuge.html#objective
