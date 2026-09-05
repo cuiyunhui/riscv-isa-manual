@@ -12,6 +12,17 @@ power-of-2 (NAPOT) granularity larger than the base page size#.
 [#norm:Svnapot_depends_Sv39]#The Svnapot extension depends on the Sv39
 extension#.
 
+[[ext:svnapot16k]]
+[[ext:svnapot32k]]
+The SvnapotNk extension family defines the independently discoverable
+ext:svnapot16k[] and ext:svnapot32k[] ISA extension strings.
+[#norm:Svnapot16k_depends_Svnapot]#The ext:svnapot16k[] extension depends on
+Svnapot# and [#norm:Svnapot16k_encoding_valid]#makes the level-0 encoding
+with _pte_.__napot_bits__=2 valid for a 16 KiB contiguous region#.
+[#norm:Svnapot32k_depends_Svnapot]#The ext:svnapot32k[] extension depends on
+Svnapot# and [#norm:Svnapot32k_encoding_valid]#makes the level-0 encoding
+with _pte_.__napot_bits__=3 valid for a 32 KiB contiguous region#.
+
 [[ptenapot]]
 .Page table entry encodings when __pte__.N=1
 [%autowidth,float="center",align="center",cols="^,^,<,^",options="header"]
@@ -24,20 +35,20 @@ extension#.
 0 +
 {ge}1
 |`x xxxx xxx1` +
-`x xxxx xx1x` +
-`x xxxx x1xx` +
+`x xxxx xx10` +
+`x xxxx x100` +
 `x xxxx 1000` +
 `x xxxx 0xxx` +
 `x xxxx xxxx`
 |_Reserved_ +
-_Reserved_ +
-_Reserved_ +
+16 KiB contiguous region if `Svnapot16k` is implemented; _Reserved_ otherwise +
+32 KiB contiguous region if `Svnapot32k` is implemented; _Reserved_ otherwise +
 64 KiB contiguous region +
 _Reserved_ +
 _Reserved_
 | - +
-- +
-- +
+2 +
+3 +
 4 +
 - +
 -
@@ -56,6 +67,11 @@ is replaced by __vpn__[__i__][__pte__.__napot_bits__-1:0]#.
 If the encoding in _pte_ is
 [#norm:Svnapot_reserved_encoding_fault]#reserved according to
 <<ptenapot>>, then a page-fault exception must be raised#.
+In particular, [#norm:Svnapot16k_unsupported_encoding_fault]#the
+_pte_.__napot_bits__=2 encoding is reserved when `Svnapot16k` is not
+implemented#, and [#norm:Svnapot32k_unsupported_encoding_fault]#the
+_pte_.__napot_bits__=3 encoding is reserved when `Svnapot32k` is not
+implemented#.
 
 * [#norm:Svnapot_cache_entries]#Implicit reads of NAPOT page table entries
 may create address-translation cache entries mapping
@@ -112,10 +128,10 @@ NAPOT aliases as appropriate in order to avoid unnecessary traps.
 Just as with normal PTEs, TLBs are permitted to cache NAPOT PTEs whose V
 (Valid) bit is clear.
 
-Depending on need, the NAPOT scheme may be extended to other
-intermediate page sizes and/or to other levels of the page table in the
-future. The encoding is designed to accommodate other NAPOT sizes should
-that need arise. For example:
+Depending on need, the NAPOT scheme may be extended to other page sizes
+and/or to other levels of the page table in the future. The encoding is
+designed to accommodate other NAPOT sizes should that need arise. For
+example:
 
 __
 
@@ -161,19 +177,19 @@ __
 |===
 
 In such a case, an implementation may or may not support all options.
-The discoverability mechanism for this extension would be extended to
-allow system software to determine which sizes are supported.
+Each additional size requires an architectural discovery mechanism so
+system software can determine which encodings are supported.
 
 Other sizes may remain deliberately excluded, so that PPN bits not being
 used to indicate a valid NAPOT region size (e.g., the least-significant
 bit of _pte_._ppn_[_i_]) may be repurposed for other uses in the
 future.
 
-However, in case finer-grained intermediate page size support proves not
-to be useful, we have chosen to standardize only 64 KiB support as a
-first step.
+The 16 KiB and 32 KiB sizes are therefore independently discoverable and
+neither requires the other.
 ====
 
 If the hypervisor extension is also implemented,
 [#norm:Svnapot_hyp_gstage]#Svnapot is also supported in G-stage
 translation#.
+The `Svnapot16k` and `Svnapot32k` encodings follow the same G-stage rule.
